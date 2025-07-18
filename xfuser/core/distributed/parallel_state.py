@@ -7,6 +7,7 @@ from typing import List, Optional
 
 import torch
 import torch.distributed
+from torch.cuda import set_device, device_count
 import xfuser.envs as envs
 from xfuser.logger import init_logger
 from .group_coordinator import (
@@ -14,6 +15,13 @@ from .group_coordinator import (
     PipelineGroupCoordinator,
     SequenceParallelGroupCoordinator,
 )
+
+try:
+    import torch_musa
+    from torch_musa.core.device import set_device, device_count
+except ModuleNotFoundError:
+    pass
+
 from .utils import RankGenerator
 
 env_info = envs.PACKAGES_CHECKER.get_packages_info()
@@ -212,6 +220,11 @@ def init_distributed_environment(
         distributed_init_method,
         backend,
     )
+    try:
+        if torch.musa.is_available():
+            backend = "mccl"
+    except ModuleNotFoundError:
+        pass
     if not torch.distributed.is_initialized():
         assert distributed_init_method is not None, (
             "distributed_init_method must be provided when initializing "
@@ -224,7 +237,7 @@ def init_distributed_environment(
             world_size=world_size,
             rank=rank,
         )
-        torch.cuda.set_device(torch.distributed.get_rank() % torch.cuda.device_count())
+        set_device(torch.distributed.get_rank() % device_count())
     # set the local rank
     # local_rank is not available in torch ProcessGroup,
     # see https://github.com/pytorch/pytorch/issues/122816
