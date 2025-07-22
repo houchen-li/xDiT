@@ -41,7 +41,7 @@ from xfuser.core.distributed.runtime_state import get_runtime_state
 from xfuser.model_executor.layers import xFuserLayerBaseWrapper
 from xfuser.model_executor.layers import xFuserLayerWrappersRegister
 from xfuser.logger import init_logger
-from xfuser.envs import PACKAGES_CHECKER
+from xfuser.envs import PACKAGES_CHECKER, get_device_name
 
 if torch.__version__ >= "2.5.0":
     from xfuser.model_executor.layers.usp import USP
@@ -58,7 +58,7 @@ HAS_FLASH_ATTN = env_info["has_flash_attn"]
 def is_v100():
     if not torch.cuda.is_available():
         return False
-    device_name = torch.cuda.get_device_name(torch.cuda.current_device())
+    device_name = get_device_name(torch.cuda.current_device())
     return "V100" in device_name
 
 

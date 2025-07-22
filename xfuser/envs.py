@@ -1,7 +1,7 @@
 import os
 import torch
 import diffusers
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 from packaging import version
 
 try:
@@ -59,19 +59,19 @@ def _is_musa():
     except ModuleNotFoundError:
         return False
 
-def get_device(local_rank:int) -> torch.device:
+def get_device(local_rank:Optional[int] = None) -> torch.device:
     if torch.cuda.is_available():
-        return torch.device("cuda", local_rank)
+        return torch.cuda.current_device() if local_rank is None else torch.device("cuda", local_rank)
     elif _is_musa():
-        return torch.device("musa", local_rank)
+        return torch.musa.current_device() if local_rank is None else torch.device("musa", local_rank)
     else:
         return torch.device("cpu")
 
-def get_device_name() -> str:
+def get_device_name(device:Union[torch.device, int, str, None] = None) -> str:
     if torch.cuda.is_available():
-        return "cuda"
+        return torch.cuda.get_device_name(device)
     elif _is_musa():
-        return "musa"
+        return torch.musa.get_device_name(device)
     else:
         return "cpu"
 
@@ -104,13 +104,10 @@ variables: Dict[str, Callable[[], Any]] = {
     ),
 }
 
-try:
-    if torch.musa.is_available():
-        environment_variables["MUSA_HOME"] = lambda: os.environ.get("MUSA_HOME", None)
-        environment_variables["MUSA_VISIBLE_DEVICES"] = lambda: os.environ.get("MUSA_VISIBLE_DEVICES", None)
-        variables["MUSA_VERSION"] = lambda: version.parse(torch.version.musa)
-except ModuleNotFoundError:
-    pass
+if _is_musa():
+    environment_variables["MUSA_HOME"] = lambda: os.environ.get("MUSA_HOME", None)
+    environment_variables["MUSA_VISIBLE_DEVICES"] = lambda: os.environ.get("MUSA_VISIBLE_DEVICES", None)
+    variables["MUSA_VERSION"] = lambda: version.parse(torch.version.musa)
 
 class PackagesEnvChecker:
     _instance = None
